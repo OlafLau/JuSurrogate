@@ -1,0 +1,7 @@
+.ipynb_checkpoints
+.vscode
+.DS_Store
+.AppleDouble
+.LSOverride
+Manifest.toml
+doc/tutorial.ipynb

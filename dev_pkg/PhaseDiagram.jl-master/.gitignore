@@ -1,0 +1,19 @@
+*.jl.*.cov
+*.jl.cov
+*.jl.mem
+/docs/build/
+.DS_Store
+.ipynb_checkpoints
+jl_*.txt
+Manifest.toml
+.VSCodeCounter/
+test/DIS_phi*
+test/LAM_f*
+test/LAM_phi*
+DIS_phi*
+test/microphase
+LAM_phi0.*
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

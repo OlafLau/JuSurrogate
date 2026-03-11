@@ -1,0 +1,13 @@
+name = "CubicHermiteSpline"
+uuid = "2338ea46-7d83-48cf-b44e-cf8e0b5b9cc1"
+authors = ["liuyxpp <liuyxpp@gmail.com>"]
+version = "0.3.3"
+
+[deps]
+ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
+DelaunayTriangulation = "927a84f5-c5f4-47a5-9785-b46e178433df"
+
+[compat]
+ArgCheck = "^2.0"
+DelaunayTriangulation = "1.1"
+julia = "1.6"

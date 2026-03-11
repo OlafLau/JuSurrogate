@@ -1,0 +1,11 @@
+[deps]
+CubicHermiteSpline = "2338ea46-7d83-48cf-b44e-cf8e0b5b9cc1"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+Polymer = "3c6f16a5-7773-4db2-b4fd-b1ef4c83c671"
+PolymerArchitecture = "9f77f41a-3be8-4884-a3be-1fccfab54d3c"
+Polyorder = "7de1a322-a2ac-410e-a07d-299ee5a56611"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
+Scattering = "a5c306d0-0a40-4008-a012-bc604123031d"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
