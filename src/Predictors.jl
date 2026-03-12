@@ -6,15 +6,16 @@ using Optim
 export solve_gce_root, solve_ge_optim
 
 """
-    solve_gce_root(F_c, mu_c, search_range)
+    solve_gce_root(F_c, mu_c, search_range; method=Bisection())
 使用巨正则系综(GCE)条件通过求根解两相平衡。
 基于共同有效化学势和相间的巨正则自由能相等 (F_g^α = F_g^β)。
 F_c: 代理模型返回的自由能函数
 mu_c: 代理模型返回的偏导（化学势）函数
 search_range: 搜索范围，比如 range(0.01, 0.99, length=100)。
+method: 指定求解根的方法，如 Bisection() (默认), A42(), Brent() 等。
 返回: (ϕ_α, ϕ_β, μ, Fg) 或在无解时返回 NaN 元组。
 """
-function solve_gce_root(F_c, mu_c, search_range)
+function solve_gce_root(F_c, mu_c, search_range; method=Bisection())
     # 取消依赖于 Spinodal 的特定范围检测，因为对于类似于多个有序抛物线的连续域，它可能存在多个波动
     # 直接在全球域寻找对于任意给定化学势 m 时存在的各个根。
     
@@ -63,7 +64,7 @@ function solve_gce_root(F_c, mu_c, search_range)
 
     if bracket !== nothing
         try
-            mu_pred = find_zero(delta_Fg, bracket, Bisection())
+            mu_pred = find_zero(delta_Fg, bracket, method)
             
             # 使用算出的化学势找回精准体积占比
             rts = find_zeros(p -> mu_c(p) - mu_pred, search_range[1], search_range[end])
@@ -81,14 +82,15 @@ function solve_gce_root(F_c, mu_c, search_range)
 end
 
 """
-    solve_ge_optim(F_c, mu_c, search_range; initial_guess=nothing)
+    solve_ge_optim(F_c, mu_c, search_range; initial_guess=nothing, method=BFGS())
 使用 Gibbs 系综(GE)条件通过 Optim 极小化总自由能(Lever Rule)。
 F_c: 代理模型返回的自由能函数
 mu_c: 代理模型返回的偏导（化学势）函数
 search_range: 提供域边界以设置约束（比如 range(0.01, 0.99, length=100)）
+method: 指定内部优化算法，支持 BFGS() (默认), LBFGS(), GradientDescent(), ConjugateGradient() 等。
 返回: (ϕ_α, ϕ_β, μ, Fg) 或在无解时返回 NaN 元组。
 """
-function solve_ge_optim(F_c, mu_c, search_range; initial_guess=nothing)
+function solve_ge_optim(F_c, mu_c, search_range; initial_guess=nothing, method=BFGS())
     if initial_guess === nothing
         # 默认初猜
         L = search_range[end] - search_range[1]
@@ -136,7 +138,7 @@ function solve_ge_optim(F_c, mu_c, search_range; initial_guess=nothing)
     initial_guess[2] = clamp(initial_guess[2], ϕ_0 + 1e-5, upper[2] - 1e-5)
 
     try
-        res = optimize(G, g!, lower, upper, initial_guess, Fminbox(BFGS()), Optim.Options(g_abstol=1e-10))
+        res = optimize(G, g!, lower, upper, initial_guess, Fminbox(method), Optim.Options(g_abstol=1e-10))
         
         if Optim.converged(res)
             pa_pred, pb_pred = Optim.minimizer(res)
