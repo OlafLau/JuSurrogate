@@ -88,7 +88,13 @@ function run_surrogate_loop(params;
 
         # 2. 拟合 (Surrogate)
         # 我们把 (Fc, mu) 打包成 tuple 喂给 surrogate_func，这样就能使用梯度的 Hermes 样条等模型
-        F_c_surr, mu_c_surr = surrogate_func(ϕ_evaluated, (Fc_evaluated, mu_evaluated); grad=true)
+        # 由于原生的 CubicHermiteSpline 不支持超出采集点范围的外推(Extrapolation)，为搜索范围提供强约束
+        raw_F, raw_mu = surrogate_func(ϕ_evaluated, (Fc_evaluated, mu_evaluated); grad=true)
+        c_min, c_max = ϕ_evaluated[1], ϕ_evaluated[end]
+        
+        # 安全包裹代理函数，遇到边界截断保护
+        F_c_surr = (x) -> raw_F(clamp(x, c_min, c_max))
+        mu_c_surr = (x) -> raw_mu(clamp(x, c_min, c_max))
         
         # 3. 求解 (Prediction)
         if predictor == :gce
