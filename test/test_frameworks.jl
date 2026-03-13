@@ -14,6 +14,7 @@ using .Sampling
 using .Blackboxs
 using .Frameworks
 using Plots
+using Roots
 
 params = (αA = 1.0, αB = 0.5, χN = 5.0)
 
@@ -44,6 +45,9 @@ ans_bs, _, hist_bs = run_surrogate_loop(params; initial_ϕs = smart_initial_ϕs,
 println("Running: GCE + QS (Quad-section Sampling)")
 ans_qs, _, hist_qs = run_surrogate_loop(params; initial_ϕs = smart_initial_ϕs, predictor=:gce, sampling_strategy="QS", verbose=false)
 
+println("Running: GCE + RS (Random Sampling)")
+ans_rs, _, hist_rs = run_surrogate_loop(params; initial_ϕs = smart_initial_ϕs, predictor=:gce, sampling_strategy="RS", verbose=false)
+
 # 4. 计算误差残差 Residual
 function calc_residual(hist, true_a, true_b)
     res = abs.(hist["phi_a"] .- true_a) .+ abs.(hist["phi_b"] .- true_b)
@@ -54,6 +58,7 @@ end
 res_ops = calc_residual(hist_ops, true_pa, true_pb)
 res_bs  = calc_residual(hist_bs, true_pa, true_pb)
 res_qs  = calc_residual(hist_qs, true_pa, true_pb)
+res_rs  = calc_residual(hist_rs, true_pa, true_pb)
 
 # 5. 绘制并保存收敛图
 p = plot(title="Convergence Trace Comparison", 
@@ -65,6 +70,7 @@ p = plot(title="Convergence Trace Comparison",
 plot!(p, hist_ops["blackbox_calls"], res_ops, label="OPS (On-Position)", marker=:circle, markersize=5, lw=2)
 plot!(p, hist_bs["blackbox_calls"], res_bs, label="BS (Bisection)", marker=:square, markersize=5, lw=2)
 plot!(p, hist_qs["blackbox_calls"], res_qs, label="QS (Quad-section)", marker=:utriangle, markersize=5, lw=2)
+plot!(p, hist_rs["blackbox_calls"], res_rs, label="RS (Random)", marker=:star, markersize=5, lw=2)
 
 save_path = joinpath(@__DIR__, "convergence_trace.png")
 savefig(p, save_path)
