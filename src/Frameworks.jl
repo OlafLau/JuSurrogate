@@ -32,36 +32,37 @@ using ..Blackboxs
   - `history`: 字典，保存了迭代过程的指标 `history["phi_a"]` 等。
 """
 function run_surrogate_loop(params;
-                            initial_ϕs = [0.01, 0.5, 0.99],
-                            max_iters = 50,
-                            tol = 1e-6,
-                            surrogate_func = julia_chs_surrogate,
-                            predictor = :ge,
-                            sampling_strategy = "OPS",
-                            search_range = collect(range(1e-4, 1.0 - 1e-4, length=1000)),
-                            verbose = true)
-    
+    initial_ϕs=[0.01, 0.5, 0.99],
+    max_iters=50,
+    tol=1e-6,
+    surrogate_func=julia_chs_surrogate,
+    predictor=:ge,
+    sampling_strategy="OPS",
+    search_range=collect(range(1e-4, 1.0 - 1e-4, length=1000)),
+    verbose=true)
+
     # 历史档案：保存已经被 Blackbox 评估过的真实已知点 (ϕ_i -> Fc, mu)
     ϕ_evaluated = Float64[]
     Fc_evaluated = Float64[]
     mu_evaluated = Float64[]
-    
+
     # 追踪预测轨迹
-    history = Dict(
+    history = Dict{String, Any}(
         "phi_a" => Float64[],
         "phi_b" => Float64[],
         "mu" => Float64[],
-        "iters" => 0
+        "iters" => 0,
+        "blackbox_calls" => Int[]
     )
 
     # 上一轮的预测点（用于测试收敛状态）
     last_pa, last_pb = NaN, NaN
     pa_pred, pb_pred = NaN, NaN
     mu_pred, Fg_pred = NaN, NaN
-    
+
     # 第一波：对用户给定的 initial_ϕs 进行真实的黑盒计算初始化
     ϕ_next = copy(initial_ϕs)
-    
+
     for iter in 1:max_iters
         # 1. 评估 (Black-Box)
         # 将刚刚生成的打点请求发送给真实评估器
@@ -72,13 +73,13 @@ function run_surrogate_loop(params;
                 push!(new_ϕ_to_eval, pt)
             end
         end
-        
+
         if !isempty(new_ϕ_to_eval)
             Fc_new, mu_new, _ = evaluate_fh_blackbox(new_ϕ_to_eval, params)
             append!(ϕ_evaluated, new_ϕ_to_eval)
             append!(Fc_evaluated, Fc_new)
             append!(mu_evaluated, mu_new)
-            
+
             # 为了让 1D 代理插值器正常工作，需要对评估域按坐标从小到大重新排序
             perm = sortperm(ϕ_evaluated)
             ϕ_evaluated = ϕ_evaluated[perm]
@@ -88,14 +89,8 @@ function run_surrogate_loop(params;
 
         # 2. 拟合 (Surrogate)
         # 我们把 (Fc, mu) 打包成 tuple 喂给 surrogate_func，这样就能使用梯度的 Hermes 样条等模型
-        # 由于原生的 CubicHermiteSpline 不支持超出采集点范围的外推(Extrapolation)，为搜索范围提供强约束
-        raw_F, raw_mu = surrogate_func(ϕ_evaluated, (Fc_evaluated, mu_evaluated); grad=true)
-        c_min, c_max = ϕ_evaluated[1], ϕ_evaluated[end]
-        
-        # 安全包裹代理函数，遇到边界截断保护
-        F_c_surr = (x) -> raw_F(clamp(x, c_min, c_max))
-        mu_c_surr = (x) -> raw_mu(clamp(x, c_min, c_max))
-        
+        F_c_surr, mu_c_surr = surrogate_func(ϕ_evaluated, (Fc_evaluated, mu_evaluated); grad=true)
+
         # 3. 求解 (Prediction)
         if predictor == :gce
             pa_pred, pb_pred, mu_pred, Fg_pred = solve_gce_root(F_c_surr, mu_c_surr, search_range)
@@ -104,13 +99,14 @@ function run_surrogate_loop(params;
         else
             error("Unknown predictor: $predictor. Use :gce or :ge")
         end
-        
+
         # 记录踪迹
         push!(history["phi_a"], pa_pred)
         push!(history["phi_b"], pb_pred)
         push!(history["mu"], mu_pred)
+        push!(history["blackbox_calls"], length(ϕ_evaluated))
         history["iters"] = iter
-        
+
         if verbose
             if isnan(pa_pred)
                 println("Iter $iter: Predictor failed to find two phases (Single Phase or NaN generated).")
@@ -123,24 +119,24 @@ function run_surrogate_loop(params;
         if !isnan(pa_pred) && !isnan(pb_pred) && !isnan(last_pa) && !isnan(last_pb)
             if abs(pa_pred - last_pa) < tol && abs(pb_pred - last_pb) < tol
                 if verbose
-                    println("Converged at iteration $iter!")
+                    println("Converged at iteration $(iter)!")
                 end
                 break
             end
         end
-        
+
         last_pa = pa_pred
         last_pb = pb_pred
-        
+
         # 5. 生成新样本点 (Sampling)
         # 根据预测到的共存点（即使失败了也会触发对应的全局或随机 fallback）生成下一轮请求点
         ϕ_next = sample_next_points([pa_pred, pb_pred], ϕ_evaluated, strategy=sampling_strategy)
-        
+
         if verbose
             println(" -> Sampling logic asks for Black-box evaluation on: $ϕ_next")
         end
     end
-    
+
     return (pa_pred, pb_pred), Fg_pred, history
 end
 
