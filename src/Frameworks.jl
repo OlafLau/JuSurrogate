@@ -52,13 +52,18 @@ function run_surrogate_loop(params;
         "phi_b" => Float64[],
         "mu" => Float64[],
         "iters" => 0,
-        "blackbox_calls" => Int[]
+        "blackbox_calls" => Int[],
+        "new_phi_evals" => Vector{Float64}[],
+        "new_Fc_evals" => Vector{Float64}[],
+        "new_mu_evals" => Vector{Float64}[]
     )
 
     # 上一轮的预测点（用于测试收敛状态）
     last_pa, last_pb = NaN, NaN
     pa_pred, pb_pred = NaN, NaN
     mu_pred, Fg_pred = NaN, NaN
+    
+    cumulative_calls = 0
 
     # 第一波：对用户给定的 initial_ϕs 进行真实的黑盒计算初始化
     ϕ_next = copy(initial_ϕs)
@@ -74,8 +79,21 @@ function run_surrogate_loop(params;
             end
         end
 
+        iter_new_phi = Float64[]
+        iter_new_Fc = Float64[]
+        iter_new_mu = Float64[]
+
         if !isempty(new_ϕ_to_eval)
             Fc_new, mu_new, _ = evaluate_fh_blackbox(new_ϕ_to_eval, params)
+            
+            # 不把最初始的第一波骨架打点消耗算入主动学习寻找相界的黑盒调用成本中
+            if iter > 1
+                cumulative_calls += length(new_ϕ_to_eval)
+                iter_new_phi = copy(new_ϕ_to_eval)
+                iter_new_Fc = copy(Fc_new)
+                iter_new_mu = copy(mu_new)
+            end
+
             append!(ϕ_evaluated, new_ϕ_to_eval)
             append!(Fc_evaluated, Fc_new)
             append!(mu_evaluated, mu_new)
@@ -104,7 +122,10 @@ function run_surrogate_loop(params;
         push!(history["phi_a"], pa_pred)
         push!(history["phi_b"], pb_pred)
         push!(history["mu"], mu_pred)
-        push!(history["blackbox_calls"], length(ϕ_evaluated))
+        push!(history["blackbox_calls"], cumulative_calls)
+        push!(history["new_phi_evals"], iter_new_phi)
+        push!(history["new_Fc_evals"], iter_new_Fc)
+        push!(history["new_mu_evals"], iter_new_mu)
         history["iters"] = iter
 
         if verbose
