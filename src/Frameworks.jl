@@ -39,7 +39,8 @@ function run_surrogate_loop(params;
     predictor=:ge,
     sampling_strategy="OPS",
     search_range=collect(range(1e-4, 1.0 - 1e-4, length=1000)),
-    verbose=true)
+    verbose=true,
+    ground_true=false)
 
     # 历史档案：保存已经被 Blackbox 评估过的真实已知点 (ϕ_i -> Fc, mu)
     ϕ_evaluated = Float64[]
@@ -47,7 +48,7 @@ function run_surrogate_loop(params;
     mu_evaluated = Float64[]
 
     # 追踪预测轨迹
-    history = Dict{String, Any}(
+    history = Dict{String,Any}(
         "phi_a" => Float64[],
         "phi_b" => Float64[],
         "mu" => Float64[],
@@ -62,8 +63,18 @@ function run_surrogate_loop(params;
     last_pa, last_pb = NaN, NaN
     pa_pred, pb_pred = NaN, NaN
     mu_pred, Fg_pred = NaN, NaN
-    
+
     cumulative_calls = 0
+
+    true_pa_gt, true_pb_gt = NaN, NaN
+    if ground_true
+        # 如果启用了绝对真理解收敛，我们提前使用密集网格解出真正的 F-H 解析解
+        true_pa_gt, true_pb_gt, _, _ = solve_gce_root(
+            x -> fh_free_energy(x, params.αA, params.αB, params.χN),
+            x -> fh_chemical_potential(x, params.αA, params.αB, params.χN),
+            collect(range(1e-4, 1.0 - 1e-4, length=50000))
+        )
+    end
 
     # 第一波：对用户给定的 initial_ϕs 进行真实的黑盒计算初始化
     ϕ_next = copy(initial_ϕs)
@@ -85,7 +96,7 @@ function run_surrogate_loop(params;
 
         if !isempty(new_ϕ_to_eval)
             Fc_new, mu_new, _ = evaluate_fh_blackbox(new_ϕ_to_eval, params)
-            
+
             # 不把最初始的第一波骨架打点消耗算入主动学习寻找相界的黑盒调用成本中
             if iter > 1
                 cumulative_calls += length(new_ϕ_to_eval)
@@ -137,12 +148,24 @@ function run_surrogate_loop(params;
         end
 
         # 4. 判断收敛判定 (Convergence Check)
-        if !isnan(pa_pred) && !isnan(pb_pred) && !isnan(last_pa) && !isnan(last_pb)
-            if abs(pa_pred - last_pa) < tol && abs(pb_pred - last_pb) < tol
-                if verbose
-                    println("Converged at iteration $(iter)!")
+        if !isnan(pa_pred) && !isnan(pb_pred)
+            if ground_true && !isnan(true_pa_gt) && !isnan(true_pb_gt)
+                # 使用当前预测结果与权威真理的 2-范数残差作为收敛条件
+                res_norm = sqrt((pa_pred - true_pa_gt)^2 + (pb_pred - true_pb_gt)^2)
+                if res_norm < tol
+                    if verbose
+                        println("Converged at iteration $(iter) with GT residual $(round(res_norm, sigdigits=4))")
+                    end
+                    break
                 end
-                break
+            elseif !isnan(last_pa) && !isnan(last_pb)
+                # 默认模式：使用两次迭代之间的漂移作为收敛条件
+                if abs(pa_pred - last_pa) < tol && abs(pb_pred - last_pb) < tol
+                    if verbose
+                        println("Converged at iteration $(iter)!")
+                    end
+                    break
+                end
             end
         end
 
