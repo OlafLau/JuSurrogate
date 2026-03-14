@@ -37,16 +37,16 @@ smart_initial_ϕs = vcat(collect(p1), collect(p2))
 # 3. 分别测试三种抽样策略在相同求根器下的代价表现
 println("="^50)
 println("Running: GCE + OPS (On-Position Sampling)")
-ans_ops, _, hist_ops = run_surrogate_loop(params; initial_ϕs = smart_initial_ϕs, predictor=:gce, sampling_strategy="OPS", verbose=false)
+ans_ops, _, hist_ops = run_surrogate_loop(params; initial_ϕs = smart_initial_ϕs, predictor=:gce, sampling_strategy="OPS", tol=1e-10, max_iters=100, ground_true=true, verbose=false)
 
 println("Running: GCE + BS (Bisection Sampling)")
-ans_bs, _, hist_bs = run_surrogate_loop(params; initial_ϕs = smart_initial_ϕs, predictor=:gce, sampling_strategy="BS", verbose=false)
+ans_bs, _, hist_bs = run_surrogate_loop(params; initial_ϕs = smart_initial_ϕs, predictor=:gce, sampling_strategy="BS", tol=1e-10, max_iters=100, ground_true=true, verbose=false)
 
 println("Running: GCE + QS (Quad-section Sampling)")
-ans_qs, _, hist_qs = run_surrogate_loop(params; initial_ϕs = smart_initial_ϕs, predictor=:gce, sampling_strategy="QS", verbose=false)
+ans_qs, _, hist_qs = run_surrogate_loop(params; initial_ϕs = smart_initial_ϕs, predictor=:gce, sampling_strategy="QS", tol=1e-10, max_iters=100, ground_true=true, verbose=false)
 
 println("Running: GCE + RS (Random Sampling)")
-ans_rs, _, hist_rs = run_surrogate_loop(params; initial_ϕs = smart_initial_ϕs, predictor=:gce, sampling_strategy="RS", verbose=false)
+ans_rs, _, hist_rs = run_surrogate_loop(params; initial_ϕs = smart_initial_ϕs, predictor=:gce, sampling_strategy="RS", tol=1e-10, max_iters=100, ground_true=true, verbose=false)
 
 # 4. 计算误差残差 Residual
 function calc_residual(hist, true_a, true_b)
