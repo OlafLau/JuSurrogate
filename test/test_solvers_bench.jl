@@ -37,8 +37,11 @@ smart_initial_ϕs = vcat(collect(p1), collect(p2))
 # 3. 待考察的插值方法
 interpolators = [
     ("Julia_CHS_Surrogate", julia_chs_surrogate),
-    ("Scipy_Linear_Surrogate", scipy_linear_surrogate),
-    ("Scipy_Cubic_Surrogate", scipy_cubic_surrogate)
+    ("Julia_NatNeigh_Surrogate", julia_natural_neighbor_surrogate),
+    ("Scipy_Cubic_Surrogate", scipy_cubic_surrogate),
+    ("Scipy_Kriging_Surrogate", scipy_kriging_surrogate),
+    ("Scipy_IDW_Surrogate", scipy_idw_surrogate),
+    ("Scipy_NatNeigh_Surrogate", scipy_natural_neighbor_surrogate)
 ]
 
 # 4. 待考察的求解算法与求解途径
